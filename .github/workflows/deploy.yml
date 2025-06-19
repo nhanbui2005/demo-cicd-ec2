@@ -1,41 +1,63 @@
-name: 🚀 Deploy to EC2 via SSH & Docker Compose
+name: Deploy to EC2
 
 on:
   push:
-    branches: [main] # Trigger khi push vào nhánh main
+    branches:
+      - main
 
 jobs:
   deploy:
-    name: Deploy to EC2
     runs-on: ubuntu-latest
-
     steps:
-    - name: 📥 Checkout source code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: 🔐 Setup SSH key
-      uses: webfactory/ssh-agent@v0.7.0
-      with:
-        ssh-private-key: ${{ secrets.EC2_SSH_KEY }} 
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
 
-    - name: 🚀 SSH & Deploy on EC2
-      run: |
-        ssh -o StrictHostKeyChecking=no ubuntu@54.251.83.71 << 'EOF'
-          echo "🔄 Starting deployment on EC2..."
+      - name: Install Frontend Dependencies
+        working-directory: frontend
+        run: npm install
 
-          cd /home/ubuntu
+      - name: Build Frontend
+        working-directory: frontend
+        run: npm run build
 
-          if [ ! -d "my-app" ]; then
-            git clone https://github.com/your-username/your-repo.git my-app
-          fi
+      - name: Install Backend Dependencies
+        working-directory: backend
+        run: npm install
 
-          cd my-app
-          git reset --hard
-          git pull origin main
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-          docker-compose down
-          docker-compose build --no-cache
-          docker-compose up -d
-
-          echo "✅ Deployment complete!"
-        EOF
+      - name: Deploy to EC2
+        env:
+          PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          HOST: ${{ secrets.EC2_HOST }}
+          USER: ${{ secrets.EC2_USER }}
+        run: |
+          echo "$PRIVATE_KEY" > private_key.pem
+          chmod 600 private_key.pem
+          
+          # Copy files to EC2
+          scp -i private_key.pem -o StrictHostKeyChecking=no -r \
+            docker-compose.yml \
+            frontend/dist \
+            backend \
+            nginx \
+            $USER@$HOST:/home/$USER/app/
+          
+          # Deploy using Docker Compose
+          ssh -i private_key.pem -o StrictHostKeyChecking=no $USER@$HOST << 'EOF'
+            cd /home/$USER/app
+            docker-compose down
+            docker-compose up -d --build
+          EOF
+          
+          rm -f private_key.pem
