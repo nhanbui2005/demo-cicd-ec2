@@ -8,7 +8,7 @@ function App() {
 
   return (
     <>
-    <h1>Hello Huu</h1>
+    <h1>anh có cu bự</h1>
     <h1>H2025</h1>
       <div>
         <a href="https://vite.dev" target="_blank">
