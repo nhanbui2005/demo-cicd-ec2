@@ -40,8 +40,9 @@ jobs:
 
           echo "Bắt đầu triển khai lên EC2..."
 
-          # Ghi private key vào file PEM để SSH
-          echo "$PRIVATE_KEY" > private_key.pem
+          # Ghi private key vào file PEM đúng format
+          # Sử dụng printf "%s" để tránh các vấn đề về ký tự xuống dòng
+          printf "%s" "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
           echo "Đã tạo private_key.pem"
 
@@ -52,12 +53,14 @@ jobs:
 
           # Copy file tar lên EC2
           echo "Copy app.tar.gz lên EC2..."
-          scp -i private_key.pem -o StrictHostKeyChecking=no app.tar.gz $USER@$HOST:/home/$USER/
+          # Đảm bảo bạn đang truyền đúng biến HOST và USER vào scp
+          scp -i private_key.pem -o StrictHostKeyChecking=no app.tar.gz "$USER@$HOST:/home/$USER/"
           echo "Copy hoàn tất."
 
           # SSH vào EC2 và triển khai ứng dụng
           echo "SSH vào EC2 và bắt đầu triển khai Docker Compose..."
-          ssh -i private_key.pem -o StrictHostKeyChecking=no $USER@$HOST << 'EOF'
+          # Sử dụng 'EOF' (có dấu nháy đơn) để ngăn shell cục bộ mở rộng biến bên trong
+          ssh -i private_key.pem -o StrictHostKeyChecking=no "$USER@$HOST" << 'EOF'
             # Tạo thư mục ứng dụng nếu chưa tồn tại
             mkdir -p /home/$USER/app
             
