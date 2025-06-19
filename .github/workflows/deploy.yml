@@ -34,15 +34,20 @@ jobs:
           PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           HOST: ${{ secrets.EC2_HOST }}
           USER: ${{ secrets.EC2_USER }}
-          run: |
-            tar -czf app.tar.gz docker-compose.yml frontend/dist backend nginx
+        run: |
+          echo "$PRIVATE_KEY" > private_key.pem
+          chmod 600 private_key.pem
 
-            scp -i private_key.pem -o StrictHostKeyChecking=no app.tar.gz $USER@$HOST:/home/$USER/
+          tar -czf app.tar.gz docker-compose.yml frontend/dist backend nginx
 
-            ssh -i private_key.pem -o StrictHostKeyChecking=no $USER@$HOST << EOF
-              mkdir -p /home/$USER/app
-              tar -xzf /home/$USER/app.tar.gz -C /home/$USER/app
-              cd /home/$USER/app
-              docker-compose down
-              docker-compose up -d --build
-            EOF
+          scp -i private_key.pem -o StrictHostKeyChecking=no app.tar.gz $USER@$HOST:/home/$USER/
+
+          ssh -i private_key.pem -o StrictHostKeyChecking=no $USER@$HOST << EOF
+            mkdir -p /home/$USER/app
+            tar -xzf /home/$USER/app.tar.gz -C /home/$USER/app
+            cd /home/$USER/app
+            docker-compose down
+            docker-compose up -d --build
+          EOF
+
+          rm -f private_key.pem
